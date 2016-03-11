@@ -3,6 +3,7 @@ package com.ofg.uptodate
 import com.ofg.uptodate.dependency.Dependency
 import com.ofg.uptodate.finder.jcenter.JCenterNewVersionFinderFactory
 import com.ofg.uptodate.finder.maven.GenericMavenNewVersionFinderFactory
+import com.ofg.uptodate.finder.maven.LocalMavenNewVersionFinderFactory
 import com.ofg.uptodate.finder.maven.MavenNewVersionFinderFactory
 import com.ofg.uptodate.finder.NewVersionFinderInAllRepositories
 import com.ofg.uptodate.reporting.NewVersionProcessor
@@ -55,7 +56,8 @@ class UptodatePlugin implements Plugin<Project> {
                                     new JCenterNewVersionFinderFactory().create(uptodatePluginExtension, dependencies)
                                     : // Generic maven repo. Alternative: use only GenericMavenNewVersionFinder for all cases
                                         new GenericMavenNewVersionFinderFactory().create(repo.url.toString(), uptodatePluginExtension, dependencies)
-                        return null
+                        if (repo.url.scheme.equals('file'))
+                            return new LocalMavenNewVersionFinderFactory().create(repo.url.toString(), uptodatePluginExtension, dependencies)
                     }.grep() // omit nulls
                 NewVersionFinderInAllRepositories newVersionFinder = new NewVersionFinderInAllRepositories(loggerProxy,
                         repoFinders)

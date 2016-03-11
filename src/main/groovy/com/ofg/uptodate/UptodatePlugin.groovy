@@ -42,19 +42,21 @@ class UptodatePlugin implements Plugin<Project> {
                 dependencies.addAll(getBuildDependencies(project))
             }
             if (dependencies) {
-                def repoFinders = project.repositories.findAll{repo ->
-                    repo instanceof MavenArtifactRepository && // Only maven supported
-                    (repo.url.getScheme().equals('http') || repo.url.getScheme().equals('https'))}// No local repos (file://XXXX)
+                def repoFinders = [project.repositories, project.buildscript.repositories].flatten()
+                    .unique {a,b -> a.url <=> b.url}
                     .collect {repo ->
-                        repo.url.toString().equals('https://repo1.maven.org/maven2/') ?
-                            // MavenCentral. This is different from MAVEN_CENTRAL_REPO_URL, which is a *search*-url
-                            new MavenNewVersionFinderFactory().create(uptodatePluginExtension, dependencies)
-                            : repo.url.toString().equals(JCenterNewVersionFinderFactory.JCENTER_REPO_URL) ?
-                                // JCenter
-                                new JCenterNewVersionFinderFactory().create(uptodatePluginExtension, dependencies)
-                                : // Generic maven repo. Alternative: use only GenericMavenNewVersionFinder for all cases
-                                new GenericMavenNewVersionFinderFactory().create(repo.url.toString(), uptodatePluginExtension, dependencies)
-                    }
+                        if (!repo instanceof MavenArtifactRepository) return null // Only maven supported
+                        if (repo.url.getScheme().equals('http') || repo.url.getScheme().equals('https'))
+                            return repo.url.toString().equals('https://repo1.maven.org/maven2/') ?
+                                // MavenCentral. This is different from MAVEN_CENTRAL_REPO_URL, which is a *search*-url
+                                new MavenNewVersionFinderFactory().create(uptodatePluginExtension, dependencies)
+                                : repo.url.toString().equals(JCenterNewVersionFinderFactory.JCENTER_REPO_URL) ?
+                                    // JCenter
+                                    new JCenterNewVersionFinderFactory().create(uptodatePluginExtension, dependencies)
+                                    : // Generic maven repo. Alternative: use only GenericMavenNewVersionFinder for all cases
+                                        new GenericMavenNewVersionFinderFactory().create(repo.url.toString(), uptodatePluginExtension, dependencies)
+                        return null
+                    }.grep() // omit nulls
                 NewVersionFinderInAllRepositories newVersionFinder = new NewVersionFinderInAllRepositories(loggerProxy,
                         repoFinders)
                 Set<Dependency> dependenciesWithNewVersions = newVersionFinder.findNewer(dependencies)
